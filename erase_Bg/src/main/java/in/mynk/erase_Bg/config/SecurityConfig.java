@@ -30,7 +30,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults()) // Uses the CorsConfigurationSource bean
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/webhooks/**", "/api/users/**","/api/orders/verify").permitAll()
+                        .requestMatchers("/api/webhooks/**", "/api/users/**","/api/orders/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
