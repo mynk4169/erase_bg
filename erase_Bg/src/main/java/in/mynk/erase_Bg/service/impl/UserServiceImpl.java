@@ -72,6 +72,7 @@ public class UserServiceImpl implements UserService {
                 .firstName(userDto.getFirstName())
                 .lastName(userDto.getLastName())
                 .photoUrl(userDto.getPhotoUrl())
+                .credits(userDto.getCredits() != null ? userDto.getCredits() : 50)
                 .build();
     }
 

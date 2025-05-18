@@ -26,9 +26,6 @@ public class UserEntity {
     private Integer credits;
     private String photoUrl;
 
-    public void prePersist(){
-        if (credits == null) {
-            credits = 50;
-        }
-    }
+
+
 }

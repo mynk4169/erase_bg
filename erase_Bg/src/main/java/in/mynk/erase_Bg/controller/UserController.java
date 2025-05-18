@@ -21,18 +21,18 @@ public class UserController {
 
     @PostMapping
     public ResponseEntity<?> createOrUpdateUser(@RequestBody UserDto userDto, Authentication authentication) {
-        EraseBgResponse response = null;
+        EraseBgResponse response;
+
+        if (authentication == null || !authentication.getName().equals(userDto.getClerkId())) {
+            response = EraseBgResponse.builder()
+                    .success(false)
+                    .data("User does not have permission to access the resource")
+                    .statusCode(HttpStatus.FORBIDDEN)
+                    .build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
         try {
-
-            if (!authentication.getName().equals(userDto.getClerkId())) {
-                response = EraseBgResponse.builder()
-                        .success(false)
-                        .data("User doesnot have permission access to resource")
-                        .statusCode(HttpStatus.FORBIDDEN)
-                        .build();
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
-            }
-
             UserDto user = userService.saveUser(userDto);
             response = EraseBgResponse.builder()
                     .success(true)
@@ -41,7 +41,6 @@ public class UserController {
                     .build();
             return ResponseEntity.status(HttpStatus.OK).body(response);
         } catch (Exception e) {
-
             response = EraseBgResponse.builder()
                     .success(false)
                     .data(e.getMessage())
