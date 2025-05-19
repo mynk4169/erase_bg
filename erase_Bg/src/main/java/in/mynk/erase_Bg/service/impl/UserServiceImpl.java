@@ -5,63 +5,86 @@ import in.mynk.erase_Bg.entity.UserEntity;
 import in.mynk.erase_Bg.repository.UserRepository;
 import in.mynk.erase_Bg.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
 
     @Override
+    @Transactional
     public UserDto saveUser(UserDto userDto) {
+        log.info("Saving user with clerkId: {}", userDto.getClerkId());
+        
         Optional<UserEntity> optionalUser = userRepository.findByClerkId(userDto.getClerkId());
         if (optionalUser.isPresent()) {
             UserEntity existingUser = optionalUser.get();
+            log.info("Updating existing user: {}", existingUser.getEmail());
+            
             existingUser.setEmail(userDto.getEmail());
             existingUser.setFirstName(userDto.getFirstName());
             existingUser.setLastName(userDto.getLastName());
             existingUser.setPhotoUrl(userDto.getPhotoUrl());
+            
             if (userDto.getCredits() != null) {
+                log.info("Updating credits for user {}: {} -> {}", 
+                    existingUser.getEmail(), existingUser.getCredits(), userDto.getCredits());
                 existingUser.setCredits(userDto.getCredits());
             }
+            
             existingUser = userRepository.save(existingUser);
-            System.out.println("Saving user with credits: " + userDto.getCredits());
-            System.out.println("Saving user with photoUrl: " + userDto.getPhotoUrl());
+            log.info("Successfully updated user: {}", existingUser.getEmail());
             return maptoDTO(existingUser);
         }
+        
+        log.info("Creating new user with email: {}", userDto.getEmail());
         UserEntity newUser = maptoEntity(userDto);
-        userRepository.save(newUser);
+        newUser = userRepository.save(newUser);
+        log.info("Successfully created new user: {}", newUser.getEmail());
         return maptoDTO(newUser);
-
     }
 
     @Override
     public UserDto getUserByClerkId(String clerkId) {
+        log.info("Fetching user with clerkId: {}", clerkId);
         UserEntity userEntity = userRepository.findByClerkId(clerkId)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-        return  maptoDTO(userEntity);
+                .orElseThrow(() -> {
+                    log.error("User not found with clerkId: {}", clerkId);
+                    return new UsernameNotFoundException("User not found");
+                });
+        log.info("Found user: {}", userEntity.getEmail());
+        return maptoDTO(userEntity);
     }
 
     @Override
+    @Transactional
     public void deleteUserByClerkId(String clerkId) {
+        log.info("Deleting user with clerkId: {}", clerkId);
         UserEntity userEntity = userRepository.findByClerkId(clerkId)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+                .orElseThrow(() -> {
+                    log.error("User not found with clerkId: {}", clerkId);
+                    return new UsernameNotFoundException("User not found");
+                });
         userRepository.delete(userEntity);
-        System.out.println("Deleting user: " + userEntity.getEmail());
+        log.info("Successfully deleted user: {}", userEntity.getEmail());
     }
 
-    private UserDto maptoDTO(UserEntity newUser) {
-      return   UserDto.builder()
-                .clerkId(newUser.getClerkId())
-                .credits(newUser.getCredits())
-                .email(newUser.getEmail())
-                .firstName(newUser.getFirstName())
-                .lastName(newUser.getLastName())
-                .photoUrl(newUser.getPhotoUrl())
+    private UserDto maptoDTO(UserEntity user) {
+        return UserDto.builder()
+                .clerkId(user.getClerkId())
+                .credits(user.getCredits())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .photoUrl(user.getPhotoUrl())
                 .build();
     }
 
@@ -75,5 +98,4 @@ public class UserServiceImpl implements UserService {
                 .credits(userDto.getCredits() != null ? userDto.getCredits() : 50)
                 .build();
     }
-
 }

@@ -7,6 +7,7 @@ import in.mynk.erase_Bg.response.EraseBgResponse;
 import in.mynk.erase_Bg.service.OrderService;
 import in.mynk.erase_Bg.service.RazorpayService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -18,6 +19,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
+@Slf4j
 public class OrderController {
 
     private final OrderService orderService;
@@ -25,16 +27,15 @@ public class OrderController {
 
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestParam String planId, Authentication authentication) throws RazorpayException {
-
-        Map<String, Object> responseMap = new HashMap<>();
-        EraseBgResponse response = null;
-        //validation
-
+        log.info("Creating order for plan: {} by user: {}", planId, authentication != null ? authentication.getName() : "unknown");
+        
+        EraseBgResponse response;
         if (authentication == null || authentication.getName() == null || authentication.getName().isEmpty()) {
+            log.warn("Unauthorized order creation attempt");
             response = EraseBgResponse.builder()
                     .statusCode(HttpStatus.FORBIDDEN)
                     .success(false)
-                    .data("User do not have permission to access resource")
+                    .data("User does not have permission to access resource")
                     .build();
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
         }
@@ -42,6 +43,8 @@ public class OrderController {
         try {
             Order order = orderService.createOrder(planId, authentication.getName());
             RazorpayOrderDTO responseDTO = convertToDTO(order);
+            log.info("Successfully created order: {} for user: {}", order.get("id"), authentication.getName());
+            
             response = EraseBgResponse.builder()
                     .success(true)
                     .data(responseDTO)
@@ -49,14 +52,60 @@ public class OrderController {
                     .build();
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
+            log.error("Error creating order: {}", e.getMessage(), e);
             response = EraseBgResponse.builder()
                     .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .data(e.getMessage())
+                    .data("Failed to create order: " + e.getMessage())
                     .success(false)
                     .build();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
+    }
 
+    @PostMapping("/verify")
+    public ResponseEntity<?> verifyOrder(@RequestBody Map<String, Object> request) {
+        log.info("Received payment verification request: {}", request);
+        EraseBgResponse response;
+        
+        try {
+            if (request == null || !request.containsKey("razorpay_order_id")) {
+                log.warn("Invalid verification request: missing razorpay_order_id");
+                response = EraseBgResponse.builder()
+                    .success(false)
+                    .data("Missing required parameters")
+                    .statusCode(HttpStatus.BAD_REQUEST)
+                    .build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+
+            String razorpayOrderId = request.get("razorpay_order_id").toString();
+            Map<String, Object> verificationResult = razorpayService.verifyPayment(razorpayOrderId);
+            
+            log.info("Payment verification result for order {}: {}", razorpayOrderId, verificationResult);
+            
+            response = EraseBgResponse.builder()
+                .success(true)
+                .data(verificationResult)
+                .statusCode(HttpStatus.OK)
+                .build();
+            return ResponseEntity.ok(response);
+        } catch (RazorpayException e) {
+            log.error("Razorpay error during verification: {}", e.getMessage(), e);
+            response = EraseBgResponse.builder()
+                .success(false)
+                .data("Payment verification failed: " + e.getMessage())
+                .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+                .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        } catch (Exception e) {
+            log.error("Unexpected error during verification: {}", e.getMessage(), e);
+            response = EraseBgResponse.builder()
+                .success(false)
+                .data("An unexpected error occurred during verification")
+                .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+                .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     private RazorpayOrderDTO convertToDTO(Order order) {
@@ -69,48 +118,7 @@ public class OrderController {
                 .created_at(order.get("created_at"))
                 .receipt(order.get("receipt"))
                 .build();
-
     }
-
-    @PostMapping("/verify")
-    public ResponseEntity<?> verifyOrder(@RequestBody Map<String, Object> request) throws RazorpayException {
-        EraseBgResponse response;
-        try {
-            if (request == null || !request.containsKey("razorpay_order_id")) {
-                response = EraseBgResponse.builder()
-                    .success(false)
-                    .data("Missing required parameters")
-                    .statusCode(HttpStatus.BAD_REQUEST)
-                    .build();
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-            }
-
-            String razorypayOrderId = request.get("razorpay_order_id").toString();
-            Map<String, Object> returnValue = razorpayService.verifyPayment(razorypayOrderId);
-            
-            response = EraseBgResponse.builder()
-                .success(true)
-                .data(returnValue)
-                .statusCode(HttpStatus.OK)
-                .build();
-            return ResponseEntity.ok(response);
-        } catch (RazorpayException e) {
-            response = EraseBgResponse.builder()
-                .success(false)
-                .data(e.getMessage())
-                .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
-                .build();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        } catch (Exception e) {
-            response = EraseBgResponse.builder()
-                .success(false)
-                .data("An unexpected error occurred")
-                .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
-                .build();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
-
 }
 
 
