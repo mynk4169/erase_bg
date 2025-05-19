@@ -35,7 +35,9 @@ public class RazorpayServiceImpl implements RazorpayService {
     @Override
     public Order createOrder(Double amount, String currency) throws RazorpayException {
         try {
-            log.info("Creating Razorpay order for amount: {} {}", amount, currency);
+            String logMessage = String.format("Creating Razorpay order for amount: %s %s", amount, currency);
+            log.info(logMessage);
+            
             RazorpayClient razorpayClient = new RazorpayClient(razorpayKeyId, razorypayKeySecret);
             JSONObject orderRequest = new JSONObject();
             orderRequest.put("amount", amount * 100);
@@ -44,10 +46,12 @@ public class RazorpayServiceImpl implements RazorpayService {
             orderRequest.put("payment_capture", 1);
 
             Order order = razorpayClient.orders.create(orderRequest);
-            log.info("Successfully created Razorpay order: {}", order.get("id"));
+            logMessage = String.format("Successfully created Razorpay order: %s", order.get("id"));
+            log.info(logMessage);
             return order;
         } catch (RazorpayException e) {
-            log.error("Error creating Razorpay order: {}", e.getMessage());
+            String errorMessage = String.format("Error creating Razorpay order: %s", e.getMessage());
+            log.error(errorMessage);
             throw new RazorpayException("Failed to create order: " + e.getMessage());
         }
     }
@@ -56,7 +60,8 @@ public class RazorpayServiceImpl implements RazorpayService {
     public Map<String, Object> verifyPayment(String razorpayOrderId) throws RazorpayException {
         Map<String, Object> returnValue = new HashMap<>();
         try {
-            log.info("Starting payment verification for order: {}", razorpayOrderId);
+            String logMessage = String.format("Starting payment verification for order: %s", razorpayOrderId);
+            log.info(logMessage);
             
             if (razorpayOrderId == null || razorpayOrderId.trim().isEmpty()) {
                 log.error("Invalid order ID provided");
@@ -66,14 +71,17 @@ public class RazorpayServiceImpl implements RazorpayService {
             // First check if order exists in our database
             OrderEntity existingOrder = orderRepository.findByOrderId(razorpayOrderId)
                     .orElseThrow(() -> {
-                        log.error("Order not found in database: {}", razorpayOrderId);
+                        String errorMessage = String.format("Order not found in database: %s", razorpayOrderId);
+                        log.error(errorMessage);
                         return new RuntimeException("Order not found: " + razorpayOrderId);
                     });
 
-            log.info("Found order in database for clerkId: {}", existingOrder.getClerkId());
+            logMessage = String.format("Found order in database for clerkId: %s", existingOrder.getClerkId());
+            log.info(logMessage);
 
             if (existingOrder.getPayment()) {
-                log.warn("Payment already processed for order: {}", razorpayOrderId);
+                logMessage = String.format("Payment already processed for order: %s", razorpayOrderId);
+                log.warn(logMessage);
                 returnValue.put("success", false);
                 returnValue.put("message", "Payment already processed");
                 return returnValue;
@@ -84,7 +92,8 @@ public class RazorpayServiceImpl implements RazorpayService {
             Order orderInfo = razorpayClient.orders.fetch(razorpayOrderId);
             
             String orderStatus = orderInfo.get("status").toString();
-            log.info("Razorpay order status: {}", orderStatus);
+            logMessage = String.format("Razorpay order status: %s", orderStatus);
+            log.info(logMessage);
             
             if ("paid".equalsIgnoreCase(orderStatus)) {
                 // Get user and update credits
@@ -92,8 +101,9 @@ public class RazorpayServiceImpl implements RazorpayService {
                 int currentCredits = userDto.getCredits();
                 int newCredits = currentCredits + existingOrder.getCredits();
                 
-                log.info("Updating credits for user {}: {} + {} = {}", 
+                logMessage = String.format("Updating credits for user %s: %d + %d = %d", 
                     existingOrder.getClerkId(), currentCredits, existingOrder.getCredits(), newCredits);
+                log.info(logMessage);
                 
                 userDto.setCredits(newCredits);
                 userService.saveUser(userDto);
@@ -102,22 +112,26 @@ public class RazorpayServiceImpl implements RazorpayService {
                 existingOrder.setPayment(true);
                 orderRepository.save(existingOrder);
                 
-                log.info("Successfully processed payment and updated credits for order: {}", razorpayOrderId);
+                logMessage = String.format("Successfully processed payment and updated credits for order: %s", razorpayOrderId);
+                log.info(logMessage);
                 returnValue.put("success", true);
                 returnValue.put("message", "Credits Added Successfully");
                 return returnValue;
             } else {
-                log.warn("Payment not completed for order: {}. Status: {}", razorpayOrderId, orderStatus);
+                logMessage = String.format("Payment not completed for order: %s. Status: %s", razorpayOrderId, orderStatus);
+                log.warn(logMessage);
                 returnValue.put("success", false);
                 returnValue.put("message", "Payment not completed. Status: " + orderStatus);
                 return returnValue;
             }
         } catch (RazorpayException e) {
-            log.error("Razorpay error while verifying payment: {}", e.getMessage());
+            String errorMessage = String.format("Razorpay error while verifying payment: %s", e.getMessage());
+            log.error(errorMessage);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
                 "Error while verifying the payment: " + e.getMessage());
         } catch (Exception e) {
-            log.error("Unexpected error while verifying payment: {}", e.getMessage());
+            String errorMessage = String.format("Unexpected error while verifying payment: %s", e.getMessage());
+            log.error(errorMessage);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
                 "Unexpected error while verifying payment: " + e.getMessage());
         }
