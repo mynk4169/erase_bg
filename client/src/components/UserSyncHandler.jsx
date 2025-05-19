@@ -9,7 +9,7 @@ const UserSyncHandler = () => {
     const {isLoaded, isSignedIn, getToken} = useAuth();
     const {user} = useUser();
     const [synced, setSynced] = useState(false);
-    const {backendUrl,loadUserCredits} = useContext(AppContext);
+    const {backendUrl, loadUserCredits} = useContext(AppContext);
 
     useEffect(() => {
         const saveUser = async () => {
@@ -24,9 +24,16 @@ const UserSyncHandler = () => {
                     email: user.primaryEmailAddress.emailAddress,
                     firstName: user.firstName,
                     lastName: user.lastName,
-                    photUrl:user.imageUrl,
+                    photoUrl: user.imageUrl,
                 };
-                 await axios.post(backendUrl + '/users', userData, {headers: {"Authorization": `Bearer ${token}`}});
+
+                await axios.post(backendUrl + '/users', userData, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    withCredentials: true
+                });
 
                 setSynced(true); // prevent reposting
                 await loadUserCredits();

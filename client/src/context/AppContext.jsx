@@ -15,21 +15,26 @@ const AppContextProvider = (props) => {
     const [resultImage, setResultImage] = useState(false);
     const {isSignedIn} = useUser();
     const {openSignIn} = useClerk();
-    const  navigate = useNavigate();
-    const [backgroundImage, setBackgroundImage] = useState(null); // <-- new
+    const navigate = useNavigate();
+    const [backgroundImage, setBackgroundImage] = useState(null);
 
     const loadUserCredits = async () => {
         try {
             const token = await getToken();
-            const response = await axios.get(backendUrl + "/users/credits", {headers: {Authorization: `Bearer ${token}`}});
+            const response = await axios.get(backendUrl + "/users/credits", {
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                withCredentials: true
+            });
             if (response.data.success) {
                 setCredits(response.data.data.credits);
             } else {
-                toast.error("Error while loading credit !");
+                toast.error("Error while loading credit!");
             }
-
         } catch (error) {
-            toast.error("Error while loading credit !");
+            toast.error("Error while loading credit!");
         }
     }
 
@@ -46,10 +51,16 @@ const AppContextProvider = (props) => {
             const formData = new FormData();
             selectedImage && formData.append("file", selectedImage);
 
-            const {data:base64Image} = await axios.post(backendUrl + "/images/remove-background", formData, {headers: {Authorization: `Bearer ${token}`}});
+            const {data: base64Image} = await axios.post(backendUrl + "/images/remove-background", formData, {
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "multipart/form-data"
+                },
+                withCredentials: true
+            });
             setResultImage(`data:image/png;base64,${base64Image}`);
-            setCredits(credits -1);
-        }catch (error) {
+            setCredits(credits - 1);
+        } catch (error) {
             console.error(error);
             toast.error("Error while removing background!");
         }
@@ -58,7 +69,7 @@ const AppContextProvider = (props) => {
     const contextValue = {
         credits, setCredits,
         image, setImage,
-        resultImage,setResultImage,
+        resultImage, setResultImage,
         backendUrl,
         loadUserCredits,
         eraseBg,
@@ -71,7 +82,6 @@ const AppContextProvider = (props) => {
             {props.children}
         </AppContext.Provider>
     )
-
 }
 
 export default AppContextProvider;

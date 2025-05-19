@@ -6,30 +6,39 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
+import java.util.Arrays;
+import java.util.List;
+
 @Configuration
 public class CorsConfig {
 
     @Bean
     public CorsFilter corsFilter() {
+        CorsConfiguration corsConfiguration = new CorsConfiguration();
+        corsConfiguration.setAllowedOrigins(List.of(
+            "https://harmonious-haupia-62ac68.netlify.app",
+            "http://localhost:5173"
+        ));
+        corsConfiguration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        corsConfiguration.setAllowedHeaders(Arrays.asList(
+            "Authorization",
+            "Content-Type",
+            "X-Requested-With",
+            "Accept",
+            "Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers"
+        ));
+        corsConfiguration.setExposedHeaders(Arrays.asList(
+            "Authorization",
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials"
+        ));
+        corsConfiguration.setAllowCredentials(true);
+        corsConfiguration.setMaxAge(3600L);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        CorsConfiguration config = new CorsConfiguration();
-        
-        // Allow requests from your frontend domain
-        config.addAllowedOrigin("https://harmonious-haupia-62ac68.netlify.app");
-        config.addAllowedOrigin("http://localhost:5173"); // For local development
-        
-        // Allow all HTTP methods
-        config.addAllowedMethod("*");
-        
-        // Allow all headers
-        config.addAllowedHeader("*");
-        
-        // Allow credentials
-        config.setAllowCredentials(true);
-        
-        // Apply this configuration to all paths
-        source.registerCorsConfiguration("/**", config);
-        
+        source.registerCorsConfiguration("/**", corsConfiguration);
         return new CorsFilter(source);
     }
 } 
