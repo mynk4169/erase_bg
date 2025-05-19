@@ -38,21 +38,52 @@ public class RazorpayServiceImpl implements RazorpayService {
             String logMessage = String.format("Creating Razorpay order for amount: %s %s", amount, currency);
             log.info(logMessage);
             
+            if (amount == null || amount <= 0) {
+                String errorMessage = "Invalid amount: " + amount;
+                log.error(errorMessage);
+                throw new IllegalArgumentException(errorMessage);
+            }
+
+            if (currency == null || currency.trim().isEmpty()) {
+                String errorMessage = "Invalid currency: " + currency;
+                log.error(errorMessage);
+                throw new IllegalArgumentException(errorMessage);
+            }
+
+            if (razorpayKeyId == null || razorpayKeyId.trim().isEmpty() || 
+                razorypayKeySecret == null || razorypayKeySecret.trim().isEmpty()) {
+                String errorMessage = "Razorpay credentials not configured";
+                log.error(errorMessage);
+                throw new IllegalStateException(errorMessage);
+            }
+            
             RazorpayClient razorpayClient = new RazorpayClient(razorpayKeyId, razorypayKeySecret);
             JSONObject orderRequest = new JSONObject();
-            orderRequest.put("amount", amount * 100);
+            orderRequest.put("amount", amount * 100); // Convert to paise
             orderRequest.put("currency", currency);
             orderRequest.put("receipt", "order_rcptid" + System.currentTimeMillis());
             orderRequest.put("payment_capture", 1);
 
+            log.debug("Sending request to Razorpay: {}", orderRequest.toString());
             Order order = razorpayClient.orders.create(orderRequest);
+            
+            if (order == null || order.get("id") == null) {
+                String errorMessage = "Received null or invalid order from Razorpay";
+                log.error(errorMessage);
+                throw new RazorpayException(errorMessage);
+            }
+
             logMessage = String.format("Successfully created Razorpay order: %s", order.get("id"));
             log.info(logMessage);
             return order;
         } catch (RazorpayException e) {
-            String errorMessage = String.format("Error creating Razorpay order: %s", e.getMessage());
-            log.error(errorMessage);
-            throw new RazorpayException("Failed to create order: " + e.getMessage());
+            String errorMessage = String.format("Razorpay error creating order: %s", e.getMessage());
+            log.error(errorMessage, e);
+            throw new RazorpayException(errorMessage, e);
+        } catch (Exception e) {
+            String errorMessage = String.format("Unexpected error creating order: %s", e.getMessage());
+            log.error(errorMessage, e);
+            throw new RazorpayException(errorMessage, e);
         }
     }
 

@@ -91,36 +91,59 @@ public class UserController {
 
     @GetMapping("/credits")
     public ResponseEntity<?> getUserCredits(Authentication authentication) {
-        EraseBgResponse bgResponse = null;
         try {
-            if (authentication.getName().isEmpty() || authentication.getName() == null) {
-                EraseBgResponse.builder().statusCode(HttpStatus.FORBIDDEN)
-                        .data("user doesnot have permission to access resource")
-                        .success(false);
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(bgResponse);
+            if (authentication == null) {
+                log.warn("Unauthorized credits request - authentication is null");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(EraseBgResponse.builder()
+                        .statusCode(HttpStatus.FORBIDDEN)
+                        .data("User does not have permission to access resource")
+                        .success(false)
+                        .build());
             }
 
             String clerkId = authentication.getName();
+            if (clerkId == null || clerkId.isEmpty()) {
+                log.warn("Unauthorized credits request - clerkId is null or empty");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(EraseBgResponse.builder()
+                        .statusCode(HttpStatus.FORBIDDEN)
+                        .data("User does not have permission to access resource")
+                        .success(false)
+                        .build());
+            }
+
+            log.debug("Fetching credits for user: {}", clerkId);
             UserDto existingUser = userService.getUserByClerkId(clerkId);
+            
+            if (existingUser == null) {
+                log.warn("User not found for clerkId: {}", clerkId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(EraseBgResponse.builder()
+                        .statusCode(HttpStatus.NOT_FOUND)
+                        .data("User not found")
+                        .success(false)
+                        .build());
+            }
+
             Map<String, Integer> map = new HashMap<>();
             map.put("credits", existingUser.getCredits());
-            bgResponse = EraseBgResponse.builder()
-                    .statusCode(HttpStatus.OK)
-                    .data(map)
-                    .success(true)
-                    .build();
-            return ResponseEntity.status(HttpStatus.OK)
-                    .body(bgResponse);
+            
+            log.debug("Successfully retrieved credits for user {}: {}", clerkId, existingUser.getCredits());
+            return ResponseEntity.ok(EraseBgResponse.builder()
+                .statusCode(HttpStatus.OK)
+                .data(map)
+                .success(true)
+                .build());
 
-        }catch (Exception e){
-            bgResponse = EraseBgResponse.builder()
-                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .data("Something went wrong!")
-                    .success(false)
-                    .build();
+        } catch (Exception e) {
+            log.error("Error getting user credits: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(bgResponse);
-
+                .body(EraseBgResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .data("Something went wrong while fetching credits")
+                    .success(false)
+                    .build());
         }
     }
 

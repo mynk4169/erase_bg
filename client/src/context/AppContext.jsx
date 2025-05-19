@@ -21,6 +21,7 @@ const AppContextProvider = (props) => {
     const loadUserCredits = async () => {
         try {
             const token = await getToken();
+            console.log("Fetching user credits...");
             const response = await axios.get(backendUrl + "/users/credits", {
                 headers: {
                     "Authorization": `Bearer ${token}`,
@@ -28,13 +29,18 @@ const AppContextProvider = (props) => {
                 },
                 withCredentials: true
             });
+            console.log("Credits response:", response.data);
             if (response.data.success) {
-                setCredits(response.data.data.credits);
+                const credits = response.data.data.credits;
+                console.log("Setting credits to:", credits);
+                setCredits(credits);
             } else {
-                toast.error("Error while loading credit!");
+                console.error("Error in credits response:", response.data);
+                toast.error(response.data.data || "Error while loading credits!");
             }
         } catch (error) {
-            toast.error("Error while loading credit!");
+            console.error("Error loading credits:", error);
+            toast.error(error.response?.data?.data || "Error while loading credits!");
         }
     }
 

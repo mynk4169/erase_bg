@@ -26,39 +26,75 @@ public class OrderController {
     private final RazorpayService razorpayService;
 
     @PostMapping
-    public ResponseEntity<?> createOrder(@RequestParam String planId, Authentication authentication) throws RazorpayException {
+    public ResponseEntity<?> createOrder(@RequestParam String planId, Authentication authentication) {
         log.info("Creating order for plan: {} by user: {}", planId, authentication != null ? authentication.getName() : "unknown");
         
-        EraseBgResponse response;
-        if (authentication == null || authentication.getName() == null || authentication.getName().isEmpty()) {
-            log.warn("Unauthorized order creation attempt");
-            response = EraseBgResponse.builder()
-                    .statusCode(HttpStatus.FORBIDDEN)
-                    .success(false)
-                    .data("User does not have permission to access resource")
-                    .build();
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
-        }
-
         try {
+            if (authentication == null || authentication.getName() == null || authentication.getName().isEmpty()) {
+                log.warn("Unauthorized order creation attempt");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(EraseBgResponse.builder()
+                        .statusCode(HttpStatus.FORBIDDEN)
+                        .success(false)
+                        .data("User does not have permission to access resource")
+                        .build());
+            }
+
+            if (planId == null || planId.trim().isEmpty()) {
+                log.warn("Invalid planId provided: {}", planId);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(EraseBgResponse.builder()
+                        .statusCode(HttpStatus.BAD_REQUEST)
+                        .success(false)
+                        .data("Invalid plan ID")
+                        .build());
+            }
+
             Order order = orderService.createOrder(planId, authentication.getName());
+            if (order == null) {
+                log.error("Order creation returned null for plan: {} and user: {}", planId, authentication.getName());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(EraseBgResponse.builder()
+                        .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .success(false)
+                        .data("Failed to create order")
+                        .build());
+            }
+
             RazorpayOrderDTO responseDTO = convertToDTO(order);
             log.info("Successfully created order: {} for user: {}", order.get("id"), authentication.getName());
             
-            response = EraseBgResponse.builder()
+            return ResponseEntity.status(HttpStatus.CREATED)
+                .body(EraseBgResponse.builder()
                     .success(true)
                     .data(responseDTO)
                     .statusCode(HttpStatus.CREATED)
-                    .build();
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            log.error("Error creating order: {}", e.getMessage(), e);
-            response = EraseBgResponse.builder()
-                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .data("Failed to create order: " + e.getMessage())
+                    .build());
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid request parameters: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(EraseBgResponse.builder()
+                    .statusCode(HttpStatus.BAD_REQUEST)
                     .success(false)
-                    .build();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+                    .data(e.getMessage())
+                    .build());
+        } catch (RazorpayException e) {
+            log.error("Razorpay error creating order: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(EraseBgResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .success(false)
+                    .data("Payment service error: " + e.getMessage())
+                    .build());
+        } catch (Exception e) {
+            log.error("Unexpected error creating order: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(EraseBgResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .success(false)
+                    .data("An unexpected error occurred")
+                    .build());
         }
     }
 
