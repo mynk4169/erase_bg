@@ -47,7 +47,7 @@ public class RazorpayServiceImpl implements RazorpayService {
             log.info("Successfully created Razorpay order: {}", order.get("id"));
             return order;
         } catch (RazorpayException e) {
-            log.error("Error creating Razorpay order: {}", e.getMessage(), e);
+            log.error("Error creating Razorpay order: {}", e.getMessage());
             throw new RazorpayException("Failed to create order: " + e.getMessage());
         }
     }
@@ -113,11 +113,11 @@ public class RazorpayServiceImpl implements RazorpayService {
                 return returnValue;
             }
         } catch (RazorpayException e) {
-            log.error("Razorpay error while verifying payment: {}", e.getMessage(), e);
+            log.error("Razorpay error while verifying payment: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
                 "Error while verifying the payment: " + e.getMessage());
         } catch (Exception e) {
-            log.error("Unexpected error while verifying payment: {}", e.getMessage(), e);
+            log.error("Unexpected error while verifying payment: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
                 "Unexpected error while verifying payment: " + e.getMessage());
         }
