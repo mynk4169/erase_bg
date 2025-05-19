@@ -12,7 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/webhooks")
+@RequestMapping("/api/webhook")
 @RequiredArgsConstructor
 public class ClerkWebHookController {
 
@@ -20,97 +20,47 @@ public class ClerkWebHookController {
     private String webhookSecret;
 
     private final UserService userService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostMapping("/clerk")
-    public ResponseEntity<?> handleClerkWebhook(@RequestHeader("svix-id") String svixId, @RequestHeader("svix-timestamp") String svixTimestamp
-            , @RequestHeader("svix-signature") String svixSignature,
-                                                @RequestBody String payload) {
-        EraseBgResponse response = null;
+    public ResponseEntity<?> handleClerkWebhook(@RequestBody String payload) {
         try {
-            boolean isValid = verifyWebhookSignature(svixId, svixSignature, svixTimestamp);
-            if (!isValid) {
-                response = EraseBgResponse.builder()
-                        .statusCode(HttpStatus.UNAUTHORIZED)
-                        .data("Invalid webhook signature")
-                        .success(false)
-                        .build();
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
-            }
-
-            ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(payload);
-
             String eventType = rootNode.path("type").asText();
+            JsonNode data = rootNode.path("data");
 
             switch (eventType) {
                 case "user.created":
-                    handleUserCreated(rootNode.path("data"));
-                    break;
-                case "user.updated":
-                    handleUserUpdated(rootNode.path("data"));
-                    break;
+                    String clerkId = data.path("id").asText();
+                    String email = data.path("email_addresses").get(0).path("email_address").asText();
+                    String firstName = data.path("first_name").asText();
+                    String lastName = data.path("last_name").asText();
+
+                    userService.createUser(clerkId, email, firstName, lastName);
+                    return ResponseEntity.ok().build();
+
                 case "user.deleted":
-                    handleUserDeleted(rootNode.path("data"));
-                    break;
+                    clerkId = data.path("id").asText();
+                    userService.deactivateUser(clerkId);
+                    return ResponseEntity.ok().build();
+
+                default:
+                    return ResponseEntity.ok().build();
             }
-            return ResponseEntity.ok().build();
         } catch (Exception e) {
-            response = EraseBgResponse.builder()
-                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .data("Something went wrong.")
-                    .success(false)
-                    .build();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(response);
+            return ResponseEntity.badRequest().body("Invalid webhook payload: " + e.getMessage());
         }
-
     }
 
-    private void handleUserDeleted(JsonNode data) {
-        String clerkId  = data.path("id").asText();
-        userService.deleteUserByClerkId(clerkId);
-    }
-
-    private void handleUserUpdated(JsonNode data) {
-
-        String clerkId = data.path("id").asText();
-        UserDto existingUser = userService.getUserByClerkId(clerkId);
-        JsonNode emailNode = data.path("email_addresses");
-        if (emailNode.isArray() && emailNode.size() > 0) {
-            String email = emailNode.get(0).path("email_address").asText();
-            existingUser.setEmail(email);
-        }
-        existingUser.setFirstName(data.path("first_name").asText());
-        existingUser.setLastName(data.path("last_name").asText());
-        existingUser.setPhotoUrl(data.path("image_url").asText());
-
-        userService.saveUser(existingUser);
-
-
-    }
-
-    private void handleUserCreated(JsonNode data) {
-        UserDto newUser = UserDto.builder()
-                .clerkId(data.path("id").asText())
-                .email(data.path("email_address").get(0).path("email_address").asText())
-                .firstName(data.path("first_name").asText())
-                .lastName(data.path("last_name").asText())
-                .build();
-
-        userService.saveUser(newUser);
-
-    }
     @PostMapping
     public ResponseEntity<String> handleWebhook(@RequestBody String payload) {
         // Optionally log or process the webhook
         System.out.println("Received Clerk Webhook: " + payload);
-
-        // Always return 200 to acknowledge receipt
         return ResponseEntity.ok("Webhook received");
     }
 
     private boolean verifyWebhookSignature(String svixId, String svixSignature, String svixTimestamp) {
+        // Implement webhook signature verification
         return true;
     }
-
 }

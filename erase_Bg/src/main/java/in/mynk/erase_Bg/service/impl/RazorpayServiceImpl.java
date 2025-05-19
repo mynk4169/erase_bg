@@ -3,8 +3,8 @@ package in.mynk.erase_Bg.service.impl;
 import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
-import in.mynk.erase_Bg.dto.UserDto;
 import in.mynk.erase_Bg.entity.OrderEntity;
+import in.mynk.erase_Bg.entity.User;
 import in.mynk.erase_Bg.repository.OrderRepository;
 import in.mynk.erase_Bg.service.RazorpayService;
 import in.mynk.erase_Bg.service.UserService;
@@ -128,16 +128,17 @@ public class RazorpayServiceImpl implements RazorpayService {
             
             if ("paid".equalsIgnoreCase(orderStatus)) {
                 // Get user and update credits
-                UserDto userDto = userService.getUserByClerkId(existingOrder.getClerkId());
-                int currentCredits = userDto.getCredits();
+                User user = userService.findByClerkId(existingOrder.getClerkId())
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                
+                int currentCredits = user.getCredits();
                 int newCredits = currentCredits + existingOrder.getCredits();
                 
                 logMessage = String.format("Updating credits for user %s: %d + %d = %d", 
                     existingOrder.getClerkId(), currentCredits, existingOrder.getCredits(), newCredits);
                 log.info(logMessage);
                 
-                userDto.setCredits(newCredits);
-                userService.saveUser(userDto);
+                userService.updateCredits(existingOrder.getClerkId(), newCredits);
                 
                 // Mark order as paid
                 existingOrder.setPayment(true);
@@ -165,6 +166,30 @@ public class RazorpayServiceImpl implements RazorpayService {
             log.error(errorMessage);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
                 "Unexpected error while verifying payment: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void handlePaymentSuccess(String clerkId, String plan) {
+        User user = userService.findByClerkId(clerkId)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        // Update user's plan and credits based on the plan
+        int credits = getCreditsForPlan(plan);
+        userService.updatePlan(clerkId, plan);
+        userService.updateCredits(clerkId, credits);
+    }
+
+    private int getCreditsForPlan(String plan) {
+        switch (plan.toLowerCase()) {
+            case "basic":
+                return 50;
+            case "premium":
+                return 200;
+            case "pro":
+                return 500;
+            default:
+                return 0;
         }
     }
 }
