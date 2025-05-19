@@ -36,9 +36,11 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getRequestURI();
+        String method = request.getMethod();
 
-        // Skip filter only for webhook endpoints
-        if (path.startsWith("/api/webhooks") || path.startsWith("/api/orders/verify")) {
+        // Skip filter for webhook endpoints and POST to /api/orders/verify
+        if (path.startsWith("/api/webhooks") || 
+            (path.equals("/api/orders/verify") && method.equals("POST"))) {
             filterChain.doFilter(request, response);
             return;
         }

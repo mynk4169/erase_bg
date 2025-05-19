@@ -4,6 +4,7 @@ import in.mynk.erase_Bg.dto.UserDto;
 import in.mynk.erase_Bg.response.EraseBgResponse;
 import in.mynk.erase_Bg.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -15,44 +16,51 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
+@Slf4j
 public class UserController {
 
     private final UserService userService;
 
     @PostMapping
     public ResponseEntity<?> createOrUpdateUser(@RequestBody UserDto userDto, Authentication authentication) {
+        log.info("Received request to create/update user for clerkId: {}", userDto.getClerkId());
+        
         EraseBgResponse response;
-
-        if (authentication == null) {
-            response = EraseBgResponse.builder()
-                    .success(false)
-                    .data("Authentication required")
-                    .statusCode(HttpStatus.UNAUTHORIZED)
-                    .build();
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
-        }
-
-        if (!authentication.getName().equals(userDto.getClerkId())) {
-            response = EraseBgResponse.builder()
-                    .success(false)
-                    .data("User does not have permission to access the resource")
-                    .statusCode(HttpStatus.FORBIDDEN)
-                    .build();
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
-        }
-
         try {
+            if (authentication == null) {
+                log.warn("Authentication is null for user creation request");
+                response = EraseBgResponse.builder()
+                        .success(false)
+                        .data("Authentication required")
+                        .statusCode(HttpStatus.UNAUTHORIZED)
+                        .build();
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            }
+
+            if (!authentication.getName().equals(userDto.getClerkId())) {
+                log.warn("Authentication mismatch. Expected: {}, Got: {}", userDto.getClerkId(), authentication.getName());
+                response = EraseBgResponse.builder()
+                        .success(false)
+                        .data("User does not have permission to access the resource")
+                        .statusCode(HttpStatus.FORBIDDEN)
+                        .build();
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+
             UserDto user = userService.saveUser(userDto);
+            log.info("Successfully created/updated user: {}", user.getClerkId());
+            
             response = EraseBgResponse.builder()
                     .success(true)
                     .data(user)
                     .statusCode(HttpStatus.OK)
                     .build();
-            return ResponseEntity.status(HttpStatus.OK).body(response);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
+            log.error("Error creating/updating user: {}", e.getMessage(), e);
             response = EraseBgResponse.builder()
                     .success(false)
-                    .data(e.getMessage())
+                    .data("Failed to create/update user: " + e.getMessage())
                     .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
                     .build();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);

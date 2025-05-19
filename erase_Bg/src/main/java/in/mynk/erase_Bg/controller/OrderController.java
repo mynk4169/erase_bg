@@ -74,19 +74,41 @@ public class OrderController {
 
     @PostMapping("/verify")
     public ResponseEntity<?> verifyOrder(@RequestBody Map<String, Object> request) throws RazorpayException {
-
+        EraseBgResponse response;
         try {
+            if (request == null || !request.containsKey("razorpay_order_id")) {
+                response = EraseBgResponse.builder()
+                    .success(false)
+                    .data("Missing required parameters")
+                    .statusCode(HttpStatus.BAD_REQUEST)
+                    .build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+
             String razorypayOrderId = request.get("razorpay_order_id").toString();
             Map<String, Object> returnValue = razorpayService.verifyPayment(razorypayOrderId);
-            return ResponseEntity.ok(returnValue);
+            
+            response = EraseBgResponse.builder()
+                .success(true)
+                .data(returnValue)
+                .statusCode(HttpStatus.OK)
+                .build();
+            return ResponseEntity.ok(response);
         } catch (RazorpayException e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-
+            response = EraseBgResponse.builder()
+                .success(false)
+                .data(e.getMessage())
+                .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+                .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        } catch (Exception e) {
+            response = EraseBgResponse.builder()
+                .success(false)
+                .data("An unexpected error occurred")
+                .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+                .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
-
     }
 
 }
