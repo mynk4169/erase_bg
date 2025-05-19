@@ -7,12 +7,14 @@ import in.mynk.erase_Bg.repository.OrderRepository;
 import in.mynk.erase_Bg.service.OrderService;
 import in.mynk.erase_Bg.service.RazorpayService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderServiceImpl implements OrderService {
 
     private final RazorpayService razorpayService;
@@ -31,13 +33,26 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Order createOrder(String planId, String clerkId) throws RazorpayException {
+        log.info("Creating order for plan: {} by user: {}", planId, clerkId);
+        
         PlanDetails details = PLAN_DETAILS.get(planId);
         if (details == null) {
-            throw new IllegalArgumentException("Invalid planId: " + planId);
+            String errorMessage = String.format("Invalid planId: %s", planId);
+            log.error(errorMessage);
+            throw new IllegalArgumentException(errorMessage);
         }
+
         try {
+            log.debug("Creating Razorpay order for amount: {} INR", details.amount());
             Order razorpayOrder = razorpayService.createOrder(details.amount(), "INR");
 
+            if (razorpayOrder == null || razorpayOrder.get("id") == null) {
+                String errorMessage = "Received null or invalid order from Razorpay";
+                log.error(errorMessage);
+                throw new RazorpayException(errorMessage);
+            }
+
+            log.debug("Saving order to database for orderId: {}", razorpayOrder.get("id"));
             OrderEntity newOrder = OrderEntity.builder()
                     .clerkId(clerkId)
                     .plan(details.name())
@@ -47,9 +62,16 @@ public class OrderServiceImpl implements OrderService {
                     .build();
 
             orderRepository.save(newOrder);
+            log.info("Successfully created order: {} for user: {}", razorpayOrder.get("id"), clerkId);
             return razorpayOrder;
         } catch (RazorpayException e) {
-            throw new RazorpayException("Error while creating the order ");
+            String errorMessage = String.format("Razorpay error creating order: %s", e.getMessage());
+            log.error(errorMessage, e);
+            throw new RazorpayException(errorMessage, e);
+        } catch (Exception e) {
+            String errorMessage = String.format("Unexpected error creating order: %s", e.getMessage());
+            log.error(errorMessage, e);
+            throw new RazorpayException(errorMessage, e);
         }
     }
 }
