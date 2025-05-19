@@ -33,7 +33,8 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Order createOrder(String planId, String clerkId) throws RazorpayException {
-        log.info("Creating order for plan: {} by user: {}", planId, clerkId);
+        String startMessage = String.format("Creating order for plan: %s by user: %s", planId, clerkId);
+        log.info(startMessage);
         
         PlanDetails details = PLAN_DETAILS.get(planId);
         if (details == null) {
@@ -43,7 +44,8 @@ public class OrderServiceImpl implements OrderService {
         }
 
         try {
-            log.info("Creating Razorpay order for amount: {} INR", details.amount());
+            String amountMessage = String.format("Creating Razorpay order for amount: %.2f INR", details.amount());
+            log.info(amountMessage);
             Order razorpayOrder = razorpayService.createOrder(details.amount(), "INR");
 
             if (razorpayOrder == null || razorpayOrder.get("id") == null) {
@@ -52,7 +54,8 @@ public class OrderServiceImpl implements OrderService {
                 throw new RazorpayException(errorMessage);
             }
 
-            log.info("Saving order to database for orderId: {}", razorpayOrder.get("id"));
+            String orderMessage = String.format("Saving order to database for orderId: %s", razorpayOrder.get("id"));
+            log.info(orderMessage);
             OrderEntity newOrder = OrderEntity.builder()
                     .clerkId(clerkId)
                     .plan(details.name())
@@ -62,7 +65,9 @@ public class OrderServiceImpl implements OrderService {
                     .build();
 
             orderRepository.save(newOrder);
-            log.info("Successfully created order: {} for user: {}", razorpayOrder.get("id"), clerkId);
+            String successMessage = String.format("Successfully created order: %s for user: %s", 
+                razorpayOrder.get("id"), clerkId);
+            log.info(successMessage);
             return razorpayOrder;
         } catch (RazorpayException e) {
             String errorMessage = String.format("Razorpay error creating order: %s", e.getMessage());
