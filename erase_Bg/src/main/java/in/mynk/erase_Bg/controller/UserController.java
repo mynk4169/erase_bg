@@ -23,7 +23,16 @@ public class UserController {
     public ResponseEntity<?> createOrUpdateUser(@RequestBody UserDto userDto, Authentication authentication) {
         EraseBgResponse response;
 
-        if (authentication == null || !authentication.getName().equals(userDto.getClerkId())) {
+        if (authentication == null) {
+            response = EraseBgResponse.builder()
+                    .success(false)
+                    .data("Authentication required")
+                    .statusCode(HttpStatus.UNAUTHORIZED)
+                    .build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
+
+        if (!authentication.getName().equals(userDto.getClerkId())) {
             response = EraseBgResponse.builder()
                     .success(false)
                     .data("User does not have permission to access the resource")

@@ -37,16 +37,15 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // Skip filter for public endpoints
-        if (path.startsWith("/api/webhooks") || path.startsWith("/api/orders/verify") || path.startsWith("/api/users")) {
+        // Skip filter only for webhook endpoints
+        if (path.startsWith("/api/webhooks") || path.startsWith("/api/orders/verify")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Authorization header mission/invalid");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Authorization header missing/invalid");
             return;
         }
 
