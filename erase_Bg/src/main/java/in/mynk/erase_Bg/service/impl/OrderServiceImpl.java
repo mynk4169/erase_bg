@@ -43,7 +43,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         try {
-            log.debug("Creating Razorpay order for amount: {} INR", details.amount());
+            log.info("Creating Razorpay order for amount: {} INR", details.amount());
             Order razorpayOrder = razorpayService.createOrder(details.amount(), "INR");
 
             if (razorpayOrder == null || razorpayOrder.get("id") == null) {
@@ -52,7 +52,7 @@ public class OrderServiceImpl implements OrderService {
                 throw new RazorpayException(errorMessage);
             }
 
-            log.debug("Saving order to database for orderId: {}", razorpayOrder.get("id"));
+            log.info("Saving order to database for orderId: {}", razorpayOrder.get("id"));
             OrderEntity newOrder = OrderEntity.builder()
                     .clerkId(clerkId)
                     .plan(details.name())

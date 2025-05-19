@@ -11,6 +11,8 @@ import org.springframework.data.mongodb.config.AbstractMongoClientConfiguration;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
+import java.util.concurrent.TimeUnit;
+
 @Configuration
 @EnableMongoRepositories(basePackages = "in.mynk.erase_Bg.repository")
 public class MongoConfig extends AbstractMongoClientConfiguration {
@@ -32,16 +34,16 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
                 .retryWrites(true)
                 .retryReads(true)
                 .applyToClusterSettings(builder -> 
-                    builder.serverSelectionTimeout(30000)
+                    builder.serverSelectionTimeout(30000, TimeUnit.MILLISECONDS)
                 )
                 .applyToSocketSettings(builder -> 
-                    builder.connectTimeout(30000)
+                    builder.connectTimeout(30000, TimeUnit.MILLISECONDS)
                 )
                 .applyToConnectionPoolSettings(builder -> 
                     builder.maxSize(100)
                         .minSize(0)
-                        .maxWaitTime(150000, java.util.concurrent.TimeUnit.MILLISECONDS)
-                        .maxConnectionLifeTime(300000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                        .maxWaitTime(150000, TimeUnit.MILLISECONDS)
+                        .maxConnectionLifeTime(300000, TimeUnit.MILLISECONDS)
                 )
                 .build();
         return MongoClients.create(mongoClientSettings);
